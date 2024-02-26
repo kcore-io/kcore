@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package server
+package kafka
 
 import (
 	"context"
@@ -22,13 +22,15 @@ import (
 	"log/slog"
 	"net"
 
+	"kstreamer/pkg/server"
+
 	"github.com/k-streamer/sarama"
 )
 
 const ProcessingQueueSize = 2
 
 type KafkaConnectionHandler interface {
-	ConnectionHandler
+	server.ConnectionHandler
 	run()
 }
 
