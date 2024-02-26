@@ -24,6 +24,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"kstreamer/pkg/kafka"
 	"kstreamer/pkg/server"
 )
 
@@ -61,9 +62,9 @@ func main() {
 	slog.SetDefault(slog.New(h))
 	s := server.NewTCPServer(
 		address, port, func() server.ConnectionHandler {
-			return server.NewKafkaConnectionHandler(
-				[]server.RequestHandler{
-					server.NewMetadataManager(),
+			return kafka.NewKafkaConnectionHandler(
+				[]kafka.RequestHandler{
+					kafka.NewMetadataManager(),
 				},
 			)
 		},
