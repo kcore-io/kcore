@@ -25,6 +25,10 @@ import (
 
 // ConnectionHandler is an interface for handling a single connection and will run in its own goroutine.
 type ConnectionHandler interface {
+	// HandleConnection handles a single connection.
+	//
+	// Each client connection has one instance of ConnectionHandler and runs in its own goroutine. This method will
+	// block until the connection is closed.
 	HandleConnection(conn net.Conn)
 }
 
@@ -69,7 +73,7 @@ func (s *TCPServer) Start() error {
 				slog.Error("Failed to accept TCP connection", err)
 				return
 			}
-			//TODO: Limit the number of concurrent connections
+			// TODO: Limit the number of concurrent connections
 			go s.handlerFactory().HandleConnection(conn)
 		}
 	}()

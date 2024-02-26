@@ -64,7 +64,6 @@ func (h *MockConnectionHandler) HandleConnection(conn net.Conn) {
 }
 
 func TestMain(m *testing.M) {
-	//h := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{AddSource: true, Level: slog.LevelDebug})
 	h := slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{AddSource: false, Level: slog.LevelDebug})
 	slog.SetDefault(slog.New(h))
 	m.Run()
@@ -79,9 +78,11 @@ func TestStartReceiveStop(t *testing.T) {
 
 	handler := MockConnectionHandler{messageHandler: messageHandler}
 	// Start the server
-	s := NewTCPServer(TEST_ADDRESS, TEST_PORT, func() ConnectionHandler {
-		return &handler
-	})
+	s := NewTCPServer(
+		TEST_ADDRESS, TEST_PORT, func() ConnectionHandler {
+			return &handler
+		},
+	)
 	err := s.Start()
 	if err != nil {
 		t.Fatalf("Failed to start TCP server: %s", err)
@@ -114,8 +115,12 @@ func TestStartReceiveStop(t *testing.T) {
 			t.Fatalf("Received message is not the same as the sent message: received %s, expected %s", message, data)
 		}
 	}
-	conn.Close()
-	s.Stop()
+	if err = conn.Close(); err != nil {
+		t.Fatalf("Failed to close connection: %s", err)
+	}
+	if err = s.Stop(); err != nil {
+		t.Fatalf("Failed to stop server: %s", err)
+	}
 	// Check that the server stopped
 	conn, err = net.Dial("tcp", TEST_ADDRESS+":"+strconv.Itoa(TEST_PORT))
 	if err == nil {
@@ -145,9 +150,11 @@ func TestParallelClients(t *testing.T) {
 	}
 
 	// Start the server
-	s := NewTCPServer(TEST_ADDRESS, TEST_PORT, func() ConnectionHandler {
-		return &MockConnectionHandler{messageHandler: messageHandler}
-	})
+	s := NewTCPServer(
+		TEST_ADDRESS, TEST_PORT, func() ConnectionHandler {
+			return &MockConnectionHandler{messageHandler: messageHandler}
+		},
+	)
 	err := s.Start()
 	if err != nil {
 		t.Fatalf("Failed to start TCP server: %s", err)
@@ -176,7 +183,9 @@ func TestParallelClients(t *testing.T) {
 	for _, conn := range clients {
 		conn.Close()
 	}
-	s.Stop()
+	if err = s.Stop(); err != nil {
+		t.Fatalf("Failed to stop server: %s", err)
+	}
 	// Check that the server stopped
 	conn, err := net.Dial("tcp", TEST_ADDRESS+":"+strconv.Itoa(TEST_PORT))
 	if err == nil {

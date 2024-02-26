@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package server
+package kafka
 
 import (
 	"context"
@@ -23,13 +23,15 @@ import (
 	"log/slog"
 	"net"
 
+	"kstreamer/pkg/server"
+
 	"github.com/k-streamer/sarama"
 )
 
 const ProcessingQueueSize = 2
 
 type KafkaConnectionHandler interface {
-	ConnectionHandler
+	server.ConnectionHandler
 	run()
 }
 
@@ -128,8 +130,14 @@ func (h *kafkaConnectionHandler) run() {
 			return
 		}
 
-		h.conn.Write(headerBuf)
-		h.conn.Write(resp)
+		if _, err = h.conn.Write(headerBuf); err != nil {
+			slog.Error("Failed to write response header to connection", err)
+			return
+		}
+		if _, err = h.conn.Write(resp); err != nil {
+			slog.Error("Failed to write response to connection", err)
+			return
+		}
 	}
 }
 
