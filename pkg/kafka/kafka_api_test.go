@@ -1,5 +1,5 @@
 /*
-Copyright 2023 KStreamer Authors
+Copyright 2024 KCore Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,16 +18,19 @@ package kafka
 
 import (
 	"io"
+	"log/slog"
 	"net"
+	"os"
 	"testing"
 	"time"
 
-	"github.com/k-streamer/sarama"
+	"github.com/kcore-io/sarama"
 )
 
 type MockConnection struct {
-	out [][]byte
-	in  [][]byte
+	out  [][]byte
+	in   [][]byte
+	reqs []sarama.ProtocolBody
 }
 
 func (m *MockConnection) Read(b []byte) (n int, err error) {
@@ -71,11 +74,16 @@ func (m *MockConnection) SetWriteDeadline(t time.Time) error {
 	return nil
 }
 
-func NewMockConanection() *MockConnection {
+func NewMockConnection() *MockConnection {
 	return &MockConnection{}
 }
 
 func (m *MockConnection) WithRequest(request sarama.Request) *MockConnection {
+	if m.reqs == nil {
+		m.reqs = make([]sarama.ProtocolBody, 0)
+	}
+	m.reqs = append(m.reqs, request.Body)
+
 	buf, err := sarama.Encode(&request, nil)
 
 	if err != nil {
@@ -90,8 +98,12 @@ func (m *MockConnection) WithRequest(request sarama.Request) *MockConnection {
 	return m
 }
 
-func (m *MockConnection) ReadResponseHeader() (*sarama.ResponseHeaderStruct, error) {
-	header := &sarama.ResponseHeaderStruct{}
+func (m *MockConnection) ReadResponse() (*sarama.Response, error) {
+	resp := &sarama.Response{
+		Body:        &sarama.ApiVersionsResponse{},
+		BodyVersion: m.reqs[0].APIVersion(),
+	}
+	m.reqs = m.reqs[1:]
 
 	if len(m.in) == 0 {
 		return nil, nil
@@ -100,21 +112,18 @@ func (m *MockConnection) ReadResponseHeader() (*sarama.ResponseHeaderStruct, err
 	buf := m.in[0]
 	m.in = m.in[1:]
 
-	err := sarama.VersionedDecode(buf, header, 0, nil)
+	err := sarama.VersionedDecode(buf, resp, 0, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	return header, nil
+	return resp, nil
 }
 
-func (m *MockConnection) ReadResponse() []byte {
-	if len(m.in) == 0 {
-		return nil
-	}
-	buf := m.in[0]
-	m.in = m.in[1:]
-	return buf
+func TestMain(m *testing.M) {
+	h := slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{AddSource: false, Level: slog.LevelInfo})
+	slog.SetDefault(slog.New(h))
+	m.Run()
 }
 
 func TestAPIVersionsRequest(t *testing.T) {
@@ -130,43 +139,39 @@ func TestAPIVersionsRequest(t *testing.T) {
 	}
 	// buf, err := sarama.Encode(&request, nil)
 
-	conn := NewMockConanection().WithRequest(request)
+	conn := NewMockConnection().WithRequest(request)
 
-	handler := NewKafkaConnectionHandler([]RequestHandler{NewMetadataManager()})
+	handler := NewKafkaConnectionHandler(NewKafkaApi())
 
 	handler.HandleConnection(conn)
 
-	header, err := conn.ReadResponseHeader()
+	resp, err := conn.ReadResponse()
 
 	if err != nil {
-		t.Errorf("Failed to read response header: %v", err)
+		t.Fatalf("Failed to read response: %v", err)
 	}
 
-	if header == nil {
-		t.Errorf("Expected response header to be non-nil")
-	} else if header.CorrelationID != request.CorrelationID {
-		t.Errorf("Expected correlation id to be %d, got %d", request.CorrelationID, header.CorrelationID)
+	if resp == nil {
+		t.Fatalf("Expected response to be non-nil")
+	} else if resp.CorrelationID != request.CorrelationID {
+		t.Fatalf("Expected correlation id to be %d, got %d", request.CorrelationID, resp.CorrelationID)
 	}
 
-	response := sarama.ApiVersionsResponse{}
-
-	respBuf := conn.ReadResponse()
-
-	if respBuf == nil {
-		t.Errorf("Expected response to be non-nil")
+	if resp.Body == nil {
+		t.Fatalf("Expected response body to be non-nil")
 	}
 
-	err = sarama.VersionedDecode(respBuf, &response, apiVersionRequest.APIVersion(), nil)
+	apiVersionsResponse := resp.Body.(*sarama.ApiVersionsResponse)
 
 	if err != nil {
-		t.Errorf("Failed to decode response: %v", err)
+		t.Fatalf("Failed to decode response: %v", err)
 	}
 
-	if response.ErrorCode != 0 {
-		t.Errorf("Expected error code to be 0, got %d", response.ErrorCode)
+	if apiVersionsResponse.ErrorCode != 0 {
+		t.Fatalf("Expected error code to be 0, got %d", apiVersionsResponse.ErrorCode)
 	}
 
-	if len(response.ApiKeys) == 0 {
-		t.Errorf("Expected api keys to be non-empty")
+	if len(apiVersionsResponse.ApiKeys) == 0 {
+		t.Fatalf("Expected api keys to be non-empty")
 	}
 }
