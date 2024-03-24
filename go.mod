@@ -1,10 +1,10 @@
-module kstreamer
+module kcore
 
 go 1.21
 
 require github.com/magefile/mage v1.15.0
 
-require github.com/k-streamer/sarama v0.0.0-20231231134753-33362e827e19
+require github.com/kcore-io/sarama v0.0.0-20231231134753-33362e827e19
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
@@ -27,4 +27,4 @@ require (
 	golang.org/x/net v0.19.0 // indirect
 )
 
-replace github.com/k-streamer/sarama => ../sarama
+replace github.com/kcore-io/sarama => ../sarama

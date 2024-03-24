@@ -1,5 +1,5 @@
 /*
-Copyright 2023 KStreamer Authors
+Copyright 2024 KCore Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,13 +19,11 @@ package kafka
 import (
 	"context"
 	"encoding/binary"
-	"errors"
+	"io"
 	"log/slog"
 	"net"
 
-	"kstreamer/pkg/server"
-
-	"github.com/k-streamer/sarama"
+	"kcore/pkg/server"
 )
 
 const ProcessingQueueSize = 2
@@ -36,18 +34,18 @@ type KafkaConnectionHandler interface {
 }
 
 type kafkaConnectionHandler struct {
-	conn            net.Conn
-	ctx             context.Context
-	cancel          context.CancelFunc
-	requestHandlers []RequestHandler
+	conn           net.Conn
+	ctx            context.Context
+	cancel         context.CancelFunc
+	requestHandler RequestHandler
 }
 
-func NewKafkaConnectionHandler(handlers []RequestHandler) KafkaConnectionHandler {
+func NewKafkaConnectionHandler(handler RequestHandler) KafkaConnectionHandler {
 	ctx, cancel := context.WithCancel(context.Background())
 	mgr := &kafkaConnectionHandler{
-		requestHandlers: handlers,
-		ctx:             ctx,
-		cancel:          cancel,
+		requestHandler: handler,
+		ctx:            ctx,
+		cancel:         cancel,
 	}
 	// TODO: return error
 	return mgr
@@ -60,22 +58,19 @@ func (h *kafkaConnectionHandler) HandleConnection(conn net.Conn) {
 
 /**
  * Starts reading from the connection
- *
- * For each connection we need to do the following:
-* 1. Read the request from the connection
-* 2. Parse the request
-* 3. Call the appropriate API manager.
-* 4. Write the response to the connection.
-* 5. Repeat.
-*/
+ * and handling requests.
+ */
 func (h *kafkaConnectionHandler) run() {
 	defer h.conn.Close()
 	for {
 		// Read the request size (4 bytes)
-		buf := make([]byte, 4)
+		buffer := make([]byte, 4)
 		slog.Debug("Reading request message size")
-		n, err := h.conn.Read(buf)
+		n, err := h.conn.Read(buffer)
 		if err != nil {
+			if err == io.EOF {
+				return
+			}
 			slog.Error("Failed to read request message size from connection", err)
 			return
 		}
@@ -83,12 +78,12 @@ func (h *kafkaConnectionHandler) run() {
 			slog.Error("Failed to read request message size from connection", "read bytes", n, "Expected", 4)
 			return
 		}
-		reqSize := binary.BigEndian.Uint32(buf)
+		reqSize := binary.BigEndian.Uint32(buffer)
 		slog.Debug("Read request message size from connection", "bytes", n, "request message size", reqSize)
 
 		// Read the request (reqSize bytes)
-		buf = make([]byte, reqSize)
-		n, err = h.conn.Read(buf)
+		buffer = make([]byte, reqSize)
+		n, err = h.conn.Read(buffer)
 		if err != nil {
 			slog.Error("Failed to read request from connection", err)
 			return
@@ -97,55 +92,18 @@ func (h *kafkaConnectionHandler) run() {
 			slog.Error("Failed to read request from connection", "read bytes", n, "Expected", reqSize)
 			return
 		}
-		slog.Debug("Read request from connection", "bytes", n, "request", string(buf[:n]))
+		slog.Debug("Read request from connection", "size", n)
 
-		// Parse the request
-		req := sarama.Request{}
-		err = req.Decode(&sarama.RealDecoder{Raw: buf})
-		if err != nil {
-			slog.Error("Failed to parse request", err)
-			return
-		}
-		slog.Debug(
-			"Parsed request", "client id", req.ClientID, "correlation id", req.CorrelationID, "api key",
-			req.Body.APIKey(), "api version", req.Body.APIVersion(), "body", req.Body,
-		)
-		slog.Debug("Calling API manager")
-		// TODO: We need a generic API manager that can handle all requests.
-		resp, err := h.dispatch(req)
+		// Handle the request
+		resp, err := h.requestHandler.Handle(buffer)
 		if err != nil {
 			slog.Error("Failed to handle request", err)
 			return
 		}
-		// TODO: Write the response to the connection
-		slog.Debug("Sending response", "response", resp)
-		respHeader := sarama.ResponseHeaderStruct{
-			CorrelationID: req.CorrelationID,
-			Length:        int32(len(resp) + 8),
-		}
 
-		headerBuf, err := sarama.Encode(&respHeader, nil)
-		if err != nil {
-			slog.Error("Failed to encode response header", err)
-			return
-		}
-
-		if _, err = h.conn.Write(headerBuf); err != nil {
-			slog.Error("Failed to write response header to connection", err)
-			return
-		}
 		if _, err = h.conn.Write(resp); err != nil {
 			slog.Error("Failed to write response to connection", err)
 			return
 		}
 	}
-}
-
-func (h *kafkaConnectionHandler) dispatch(req sarama.Request) (Response, error) {
-	for _, handler := range h.requestHandlers {
-		if handler.ShouldHandle(req) {
-			return handler.Handle(req)
-		}
-	}
-	return nil, errors.New("no handler found for request")
 }

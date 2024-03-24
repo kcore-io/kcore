@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	binaryName = "kstreamer"
+	binaryName = "kcore"
 )
 
 var goexec = "go"
@@ -40,7 +40,7 @@ func Clean() {
 
 // Run runs the code without building a binary first
 func Run() {
-	cmdArgs := append([]string{"run", "cmd/kstreamer/main.go"})
+	cmdArgs := append([]string{"run", "cmd/kcore/main.go"})
 	if len(os.Args) > 2 {
 		cmdArgs = append(cmdArgs, os.Args[2:]...)
 	}

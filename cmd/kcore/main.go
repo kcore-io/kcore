@@ -1,5 +1,5 @@
 /*
-Copyright 2023 KStreamer Authors
+Copyright 2024 KCore Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -24,8 +24,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"kstreamer/pkg/kafka"
-	"kstreamer/pkg/server"
+	"kcore/pkg/kafka"
+	"kcore/pkg/server"
 )
 
 var (
@@ -63,24 +63,22 @@ func main() {
 	s := server.NewTCPServer(
 		address, port, func() server.ConnectionHandler {
 			return kafka.NewKafkaConnectionHandler(
-				[]kafka.RequestHandler{
-					kafka.NewMetadataManager(),
-				},
+				kafka.NewKafkaApi(),
 			)
 		},
 	)
-	slog.Info("Starting kstreamer...")
+	slog.Info("Starting kcore...")
 	go func() {
 		if err := s.Start(); err != nil {
-			slog.Error("Failed to start kstreamer", "error", err)
+			slog.Error("Failed to start kcore", "error", err)
 			cancel()
 		}
 
 	}()
 	<-ctx.Done()
-	slog.Info("Shutting down kstreamer...")
+	slog.Info("Shutting down kcore...")
 
 	if err := s.Stop(); err != nil {
-		slog.Error("Failed to stop kstreamer", "error", err)
+		slog.Error("Failed to stop kcore", "error", err)
 	}
 }

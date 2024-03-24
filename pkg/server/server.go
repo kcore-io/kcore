@@ -1,5 +1,5 @@
 /*
-Copyright 2023 KStreamer Authors
+Copyright 2024 KCore Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -73,6 +73,7 @@ func (s *TCPServer) Start() error {
 				slog.Error("Failed to accept TCP connection", err)
 				return
 			}
+			slog.Debug("Accepted new TCP connection", "remote address", conn.RemoteAddr())
 			// TODO: Limit the number of concurrent connections
 			go s.handlerFactory().HandleConnection(conn)
 		}
