@@ -1,0 +1,14 @@
+replicaCount: 3
+
+zookeeper:
+    replicaCount: 3
+
+externalAccess:
+    enabled: true
+    service:
+        type: NodePort
+        nodePorts:
+         - 30092
+         - 31092
+         - 32092
+        domain: kafka.localhost
