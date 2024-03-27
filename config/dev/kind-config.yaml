@@ -1,0 +1,11 @@
+apiVersion: kind.x-k8s.io/v1alpha4
+kind: Cluster
+nodes:
+  - role: control-plane
+    extraPortMappings:
+      - containerPort: 30092 # internal kafka nodeport
+        hostPort: 30092 # port exposed on "host" machine for kafka
+      - containerPort: 31092 # internal kafka nodeport
+        hostPort: 31092 # port exposed on "host" machine for kafka
+      - containerPort: 32092 # internal kafka nodeport
+        hostPort: 32092 # port exposed on "host" machine for kafka
