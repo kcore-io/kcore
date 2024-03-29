@@ -1,6 +1,16 @@
+
+
 # KCore
+
+![Static Badge](https://img.shields.io/badge/Maturity--Level-Prototype-red)
+![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/kcore-io/kcore?logo=go)
+![LICENSE](https://img.shields.io/github/license/kcore-io/kcore?logo=apache)
+
+
 ![](docs/assets/logo-light.png#gh-light-mode-only)
 ![](docs/assets/logo-dark.png#gh-dark-mode-only)
+
+
 
 ## Overview
 
