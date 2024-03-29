@@ -1,4 +1,6 @@
 # KCore
+![](docs/assets/logo-light.png#gh-light-mode-only)
+![](docs/assets/logo-dark.png#gh-dark-mode-only)
 
 ## Overview
 
@@ -45,8 +47,7 @@ To get started with KCore, clone the repository and follow the setup instruction
 ### Prerequisites
 
 - Go (version 1.21 or later)
-- [Mage](https://magefile.org/) - Mage is a Make/rake-like build tool using Go. 
-- 
+- [Mage](https://magefile.org/) - Mage is a Make/rake-like build tool using Go.
 
 ### Installing
 
